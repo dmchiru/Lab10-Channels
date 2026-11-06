@@ -17,35 +17,40 @@ _CLOSED_SENTINEL = object()
 
 class Channel:
     def __init__(self, capacity: int, heap: GCHeap) -> None:
-        # TODO: internal buffer (a deque or list works), a threading.Condition,
-        # and a "closed" flag.
-        raise NotImplementedError
+        self.capacity = capacity
+        self.heap = heap
+        self._buffer = []
+        self._condition = threading.Condition()
+        self._closed = False
 
     def put(self, value: Any) -> None:
-        """
-        Block while the buffer is full. `value` is expected to be a
-        GCHeap handle -- incref it (the channel now holds a reference)
-        BEFORE enqueuing. Wake a waiting get() once space is available.
-        """
-        # TODO
-        raise NotImplementedError
+        with self._condition:
+            while len(self._buffer) >= self.capacity and not self._closed:
+                self._condition.wait()
+
+            if self._closed:
+                raise RuntimeError("Cannot put into a closed channel")
+
+            self.heap.incref(value)
+            self._buffer.append(value)
+            self._condition.notify()
 
     def get(self):
-        """
-        Block while the buffer is empty (and not closed). Returns the
-        next value, transferring the channel's reference to the
-        caller (do NOT decref here -- the caller now owns that
-        reference and is responsible for eventually releasing it).
-        On an empty, closed channel, return the sentinel from
-        `Channel.CLOSED` instead of blocking forever.
-        """
-        # TODO
-        raise NotImplementedError
+        with self._condition:
+            while not self._buffer and not self._closed:
+                self._condition.wait()
+
+            if not self._buffer:
+                return Channel.CLOSED
+
+            value = self._buffer.pop(0)
+            self._condition.notify_all()
+            return value
 
     def close(self) -> None:
-        """Mark closed and wake every blocked thread."""
-        # TODO
-        raise NotImplementedError
+        with self._condition:
+            self._closed = True
+            self._condition.notify_all()
 
     CLOSED = _CLOSED_SENTINEL
 

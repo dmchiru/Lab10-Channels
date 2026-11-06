@@ -4,11 +4,7 @@ PA 9: The Garbage Collector -- starter.
 Complete GCHeap below. See the assignment, Part B,
 for the full requirements.
 
-Named gc_heap.py, not gc.py, to avoid shadowing Python's own built-in
-gc module -- the assignment's Part B says "gc.py" but that name
-collides with the standard library, so this starter renames it.
-Submit under whichever name your instructor prefers; the test harness
-just imports from gc_heap.
+Use gc_heap.py as specified in the assignment and imported by the harness.
 
 Design note: GCHeap.allocate(obj) takes exactly one argument per the
 spec, so an allocated object that references OTHER heap handles must
@@ -19,6 +15,9 @@ example object shaped this way, used by the cyclic-structure test.
 
 from typing import Any, List
 
+class HeapRef:
+    def __init__(self, handle: int) -> None:
+        self.handle = handle
 
 class HeapNode:
     """
@@ -37,17 +36,19 @@ class HeapNode:
 
 class GCHeap:
     def __init__(self) -> None:
-        # TODO: internal storage -- e.g. {handle: (obj, refcount)} -- and a handle counter.
-        raise NotImplementedError
+        self._objects = {}
+        self._next_handle = 1
 
     def allocate(self, obj: Any) -> int:
         """Store obj, return a new handle. Initial refcount is 1 (the creating reference)."""
-        # TODO
-        raise NotImplementedError
+        handle = self._next_handle
+        self._objects[handle] = (obj, 1)
+        self._next_handle += 1
+        return handle
 
     def incref(self, handle: int) -> None:
-        # TODO
-        raise NotImplementedError
+        obj, count = self._objects[handle]
+        self._objects[handle] = (obj, count + 1)
 
     def decref(self, handle: int) -> None:
         """
@@ -55,14 +56,23 @@ class GCHeap:
         cascade-decref every handle returned by the freed object's
         get_child_handles() (if it has that method), recursively.
         """
-        # TODO
-        raise NotImplementedError
+        obj, count = self._objects[handle]
+        count -= 1
+
+        if count > 0:
+            self._objects[handle] = (obj, count)
+            return
+
+        del self._objects[handle]
+
+        if hasattr(obj, "get_child_handles"):
+            for child_handle in obj.get_child_handles():
+                self.decref(child_handle)
+
 
     def is_alive(self, handle: int) -> bool:
-        # TODO
-        raise NotImplementedError
+        return handle in self._objects
 
     def live_count(self) -> int:
         """Number of currently-alive (refcount > 0) handles."""
-        # TODO
-        raise NotImplementedError
+        return len(self._objects)

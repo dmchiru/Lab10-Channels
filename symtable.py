@@ -1,5 +1,5 @@
 """
-PA 5 dependency: paste in YOUR OWN completed PA 4 symtable.py here.
+PA 4: The USILang Symbol Table -- starter.
 
 Complete Environment and check_program below. See
 PA_04_The_USILang_Symbol_Table.md, Part B, for the full requirements.
@@ -26,7 +26,14 @@ class Environment:
         shadowing a parent name is allowed).
         """
         # TODO
-        raise NotImplementedError
+        if name in self._names:
+            original_line = self._names[name]
+            raise SemanticError(
+                f"Duplicate declaration of '{name}' "
+                f"(line {line}; originally declared line {original_line})."
+            )
+
+        self._names[name] = line
 
     def resolve(self, name: str) -> int:
         """
@@ -34,8 +41,13 @@ class Environment:
         Return the declaration line, or raise SemanticError if not
         found anywhere in the chain.
         """
-        # TODO
-        raise NotImplementedError
+        if name in self._names:
+            return self._names[name]
+
+        if self.parent is not None:
+            return self.parent.resolve(name)
+
+        raise SemanticError(f"Use of undeclared variable '{name}'.")
 
 
 def check_program(ast: Program) -> Environment:
@@ -47,5 +59,36 @@ def check_program(ast: Program) -> Environment:
     every Variable in its expr. Errors must surface at the first
     offending statement, not be collected and reported together.
     """
-    # TODO
-    raise NotImplementedError
+    env = Environment()
+
+    def resolve_with_line(name: str, line: int) -> None:
+        try:
+            env.resolve(name)
+        except SemanticError:
+            raise SemanticError(
+                f"Use of undeclared variable '{name}' (line {line})."
+            )   
+
+    def check_expr(expr) -> None:
+        if isinstance(expr, Number):
+            return
+
+        if isinstance(expr, Variable):
+            resolve_with_line(expr.name, expr.line)
+            return
+
+        if isinstance(expr, BinOp):
+            check_expr(expr.left)
+            check_expr(expr.right)
+            return
+
+    for stmt in ast.statements:
+        if isinstance(stmt, Declaration):
+            check_expr(stmt.expr)
+            env.define(stmt.name, stmt.line)
+
+        elif isinstance(stmt, Assignment):
+            resolve_with_line(stmt.name, stmt.line)
+            check_expr(stmt.expr)
+
+    return env

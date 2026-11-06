@@ -1,13 +1,5 @@
 """
-PA 5 dependency: paste in YOUR OWN completed PA 2 lexer.py here.
-(Needed transitively -- symtable.py imports from parser.py, which
-imports from this file. PA 5's own new work doesn't touch lexing or
-parsing directly.)
-
-This is the same file from PA 2's repo -- copy your own working
-tokenize() implementation over this stub before starting parser.py.
-Every PA repo is independent (no shared filesystem across repos), so
-each pipeline stage bundles its own copy of the prior stages.
+PA 2: The USILang Lexer -- starter.
 
 Complete tokenize() below. See the assignment, Part B,
 for the full requirements. Must use a single compiled master regex
@@ -30,8 +22,22 @@ class LexError(Exception):
     pass
 
 
-# TODO: build your master regex here, e.g.:
-# _MASTER_RE = re.compile(r"(?P<NUMBER>\d+)|(?P<IDENT>[A-Za-z_]\w*)|...")
+_MASTER_RE = re.compile(
+    r"(?P<NUMBER>[0-9]+(\.[0-9]+)?)"
+    r"|(?P<IDENT>[a-zA-Z_][a-zA-Z0-9_]*)"
+    r"|(?P<PLUS>\+)"
+    r"|(?P<MINUS>-)"
+    r"|(?P<STAR>\*)"
+    r"|(?P<SLASH>/)"
+    r"|(?P<LPAREN>\()"
+    r"|(?P<RPAREN>\))"
+    r"|(?P<ASSIGN>=)"
+    r"|(?P<SEMI>;)"
+    r"|(?P<COMMENT>#.*)"
+    r"|(?P<NEWLINE>\n)"
+    r"|(?P<SKIP>[ \t]+)"
+    r"|(?P<MISMATCH>.)"
+)
 
 
 def tokenize(source: str) -> List[Token]:
@@ -43,5 +49,28 @@ def tokenize(source: str) -> List[Token]:
     them. Track 1-indexed line numbers. Raise LexError (with the
     offending character and line) on unrecognized input.
     """
-    # TODO
-    raise NotImplementedError
+
+    tokens = []
+    line = 1
+    pos = 0
+
+    while pos < len(source):
+        m = _MASTER_RE.match(source, pos)
+        kind = m.lastgroup
+        lexeme = m.group()
+
+        if kind == "NEWLINE":
+            line += 1
+        elif kind in ("SKIP", "COMMENT"):
+            pass
+        elif kind == "MISMATCH":
+            raise LexError(f"Unexpected char {lexeme!r} at line {line}")
+        elif kind == "IDENT" and lexeme == "let":
+            tokens.append(Token("LET", lexeme, line))
+        else:
+            tokens.append(Token(kind, lexeme, line))
+
+        pos = m.end()
+
+    tokens.append(Token("EOF", "", line))
+    return tokens
